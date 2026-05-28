@@ -36,3 +36,14 @@ Build RPM locally (requires `rpmdevtools`):
 ```bash
 make build-local
 ```
+
+## Documentation
+
+Detailed specs and operations are documented in `docs/` (Japanese):
+
+- [docs/architecture.md](docs/architecture.md) — System overview and data flow
+- [docs/operations.md](docs/operations.md) — Day-to-day operations
+- [docs/infrastructure.md](docs/infrastructure.md) — AWS resource details and rebuild guide
+- [docs/troubleshooting.md](docs/troubleshooting.md) — Known issues and fixes
+- [docs/design-decisions.md](docs/design-decisions.md) — Why things are the way they are
+- [docs/packages/auto-brightness.md](docs/packages/auto-brightness.md) — Package internals

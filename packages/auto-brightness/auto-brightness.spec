@@ -7,7 +7,7 @@ URL:            https://github.com/kter/linux-pkg
 BuildArch:      noarch
 
 Requires:       brightnessctl
-Requires:       ffmpeg
+Requires:       /usr/bin/ffmpeg
 Requires:       ImageMagick
 
 %description

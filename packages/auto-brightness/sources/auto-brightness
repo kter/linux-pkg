@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Adjusts screen brightness based on webcam-measured ambient light.
+# Preserves manual brightness adjustments as a persistent offset.
+
+DEVICE="${BRIGHTNESS_DEVICE:-intel_backlight}"
+VIDEO="${BRIGHTNESS_VIDEO:-/dev/video0}"
+MAX_BRIGHTNESS=7500
+AUTO_MAX_BRIGHTNESS=3200
+MIN_BRIGHTNESS=300
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/auto-brightness"
+STATE_FILE="$STATE_DIR/last-auto"
+mkdir -p "$STATE_DIR"
+
+# Read current brightness and last auto-computed value
+CURRENT=$(brightnessctl -d "$DEVICE" get)
+LAST_AUTO=$(cat "$STATE_FILE" 2>/dev/null)
+
+if [[ -n "$LAST_AUTO" ]]; then
+    OFFSET=$((CURRENT - LAST_AUTO))
+else
+    OFFSET=0
+fi
+
+# Capture a single frame and compute mean luminance (0-255)
+TMPFILE=$(mktemp /tmp/brightness-XXXXXX.jpg)
+ffmpeg -f v4l2 -video_size 320x240 -i "$VIDEO" -vframes 1 -q:v 5 "$TMPFILE" -y \
+    2>/dev/null
+
+if [[ ! -s "$TMPFILE" ]]; then
+    rm -f "$TMPFILE"
+    exit 1
+fi
+
+MEAN=$(convert "$TMPFILE" -colorspace Gray -format "%[fx:mean*255]" info: 2>/dev/null)
+rm -f "$TMPFILE"
+
+if [[ -z "$MEAN" ]]; then
+    exit 1
+fi
+
+# Map luminance (0-255) to brightness using a gentle curve:
+#   dark (0-30)   -> 4-15% of max
+#   normal (30-180) -> 15-80%
+#   bright (180-255) -> 80-100%
+NEW_AUTO=$(awk -v mean="$MEAN" -v max="$AUTO_MAX_BRIGHTNESS" -v min="$MIN_BRIGHTNESS" '
+BEGIN {
+    ratio = mean / 255.0
+    # Apply sqrt curve for more natural feel in low light
+    curved = sqrt(ratio)
+    raw = min + (max - min) * curved
+    if (raw < min) raw = min
+    if (raw > max) raw = max
+    print int(raw)
+}')
+
+# Apply user offset and clamp
+FINAL=$((NEW_AUTO + OFFSET))
+(( FINAL < MIN_BRIGHTNESS )) && FINAL=$MIN_BRIGHTNESS
+(( FINAL > MAX_BRIGHTNESS )) && FINAL=$MAX_BRIGHTNESS
+
+# Save NEW_AUTO (not FINAL) so the offset persists across future runs
+echo "$NEW_AUTO" > "$STATE_FILE"
+
+brightnessctl -d "$DEVICE" set "$FINAL" >/dev/null

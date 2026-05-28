@@ -1,0 +1,144 @@
+name: Build and Publish RPM
+
+on:
+  push:
+    tags:
+      - 'auto-brightness-*'
+      - 'kter-release-*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to build (auto-brightness or kter-release)'
+        required: true
+        default: 'auto-brightness'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            rpm-build \
+            rpm-sign \
+            createrepo_c \
+            awscli2 \
+            gnupg2 \
+            git \
+            rpmdevtools \
+            systemd \
+            pinentry
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up RPM build tree
+        run: rpmdev-setuptree
+
+      - name: Determine package and version
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME:-}"
+          INPUT="${{ github.event.inputs.package }}"
+
+          if [[ "$TAG" =~ ^auto-brightness-(.+)$ ]]; then
+            echo "package=auto-brightness" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^kter-release-(.+)$ ]]; then
+            echo "package=kter-release" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          elif [[ "$INPUT" == "kter-release" ]]; then
+            echo "package=kter-release" >> "$GITHUB_OUTPUT"
+            echo "version=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "package=auto-brightness" >> "$GITHUB_OUTPUT"
+            echo "version=1.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stage auto-brightness sources
+        if: steps.meta.outputs.package == 'auto-brightness'
+        run: |
+          cp packages/auto-brightness/sources/auto-brightness ~/rpmbuild/SOURCES/
+          cp packages/auto-brightness/sources/auto-brightness.service ~/rpmbuild/SOURCES/
+          cp packages/auto-brightness/sources/auto-brightness.timer ~/rpmbuild/SOURCES/
+
+      - name: Stage kter-release sources
+        if: steps.meta.outputs.package == 'kter-release'
+        run: |
+          cp kter-release/kter-linux-config.repo ~/rpmbuild/SOURCES/
+
+      - name: Build auto-brightness RPM
+        if: steps.meta.outputs.package == 'auto-brightness'
+        run: |
+          rpmbuild -bb \
+            --define "_version ${{ steps.meta.outputs.version }}" \
+            --define "dist .fc42" \
+            packages/auto-brightness/auto-brightness.spec
+
+      - name: Build kter-release RPM
+        if: steps.meta.outputs.package == 'kter-release'
+        run: |
+          rpmbuild -bb \
+            --define "dist .fc42" \
+            kter-release/kter-release.spec
+
+      - name: Import GPG signing key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "%_gpg_name takahashi@tomohiko.io" >> ~/.rpmmacros
+          echo "%__gpg_sign_cmd %{__gpg} --batch --no-verbose --pinentry-mode loopback --passphrase-fd 3 -u "%{_gpg_name}" --detach-sign --armor --output %{__signature_filename} %{__plaintext_filename}" >> ~/.rpmmacros
+
+      - name: Sign RPM
+        run: |
+          RPM_FILE=$(find ~/rpmbuild/RPMS -name "*.rpm" | head -1)
+          echo "Signing: $RPM_FILE"
+          echo "${{ secrets.GPG_PASSPHRASE }}" | \
+            rpmsign --addsign "$RPM_FILE" 3<&0
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::401731371959:role/rpm-publisher-linux-pkg
+          aws-region: ap-northeast-1
+
+      - name: Sync existing repo from S3
+        run: |
+          mkdir -p /tmp/repo-staging
+          aws s3 sync s3://repo.devtools.site/rpm/noarch/ /tmp/repo-staging/ \
+            --exclude "repodata/*" || true
+
+      - name: Stage new RPM
+        run: |
+          RPM_FILE=$(find ~/rpmbuild/RPMS -name "*.rpm" | head -1)
+          cp "$RPM_FILE" /tmp/repo-staging/
+          echo "Staged: $(basename $RPM_FILE)"
+
+      - name: Regenerate repo metadata
+        run: createrepo_c --update /tmp/repo-staging/
+
+      - name: Sign repomd.xml
+        run: |
+          echo "${{ secrets.GPG_PASSPHRASE }}" | \
+            gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+              --detach-sign --armor \
+              --default-key takahashi@tomohiko.io \
+              /tmp/repo-staging/repodata/repomd.xml
+
+      - name: Upload GPG public key
+        run: |
+          gpg --armor --export takahashi@tomohiko.io > /tmp/RPM-GPG-KEY-kter
+          aws s3 cp /tmp/RPM-GPG-KEY-kter s3://repo.devtools.site/RPM-GPG-KEY-kter
+
+      - name: Publish repo to S3
+        run: |
+          aws s3 sync /tmp/repo-staging/ \
+            s3://repo.devtools.site/rpm/noarch/ \
+            --delete \
+            --cache-control "max-age=300"

@@ -1,0 +1,9 @@
+[Unit]
+Description=Adjust screen brightness based on webcam ambient light
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/auto-brightness
+
+[Install]
+WantedBy=default.target

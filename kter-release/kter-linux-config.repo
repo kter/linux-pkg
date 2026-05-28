@@ -1,0 +1,7 @@
+[kter-linux-pkg]
+name=kter linux-pkg packages
+baseurl=https://repo.devtools.site/rpm/noarch/
+enabled=1
+gpgcheck=1
+gpgkey=https://repo.devtools.site/RPM-GPG-KEY-kter
+repo_gpgcheck=1

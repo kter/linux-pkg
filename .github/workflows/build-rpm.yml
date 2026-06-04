@@ -5,12 +5,11 @@ on:
     tags:
       - 'auto-brightness-*'
       - 'kter-release-*'
-      - 'pam-fprint-grosshack-*'
       - 'zenith-wallpaper-*'
   workflow_dispatch:
     inputs:
       package:
-        description: 'Package to build (auto-brightness, kter-release, pam-fprint-grosshack, or zenith-wallpaper)'
+        description: 'Package to build (auto-brightness, kter-release, or zenith-wallpaper)'
         required: true
         default: 'auto-brightness'
 
@@ -37,15 +36,7 @@ jobs:
             rpmdevtools \
             systemd \
             pinentry \
-            golang \
-            meson \
-            ninja-build \
-            gcc \
-            pam-devel \
-            systemd-devel \
-            glib2-devel \
-            libfprint-devel \
-            polkit-devel
+            golang
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -65,18 +56,12 @@ jobs:
           elif [[ "$TAG" =~ ^kter-release-(.+)$ ]]; then
             echo "package=kter-release" >> "$GITHUB_OUTPUT"
             echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
-          elif [[ "$TAG" =~ ^pam-fprint-grosshack-(.+)$ ]]; then
-            echo "package=pam-fprint-grosshack" >> "$GITHUB_OUTPUT"
-            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           elif [[ "$TAG" =~ ^zenith-wallpaper-(.+)$ ]]; then
             echo "package=zenith-wallpaper" >> "$GITHUB_OUTPUT"
             echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           elif [[ "$INPUT" == "kter-release" ]]; then
             echo "package=kter-release" >> "$GITHUB_OUTPUT"
             echo "version=1" >> "$GITHUB_OUTPUT"
-          elif [[ "$INPUT" == "pam-fprint-grosshack" ]]; then
-            echo "package=pam-fprint-grosshack" >> "$GITHUB_OUTPUT"
-            echo "version=1.94.2" >> "$GITHUB_OUTPUT"
           elif [[ "$INPUT" == "zenith-wallpaper" ]]; then
             echo "package=zenith-wallpaper" >> "$GITHUB_OUTPUT"
             echo "version=1.0" >> "$GITHUB_OUTPUT"
@@ -97,14 +82,6 @@ jobs:
         run: |
           cp kter-release/kter-linux-config.repo ~/rpmbuild/SOURCES/
 
-      - name: Stage pam-fprint-grosshack sources
-        if: steps.meta.outputs.package == 'pam-fprint-grosshack'
-        run: |
-          git clone https://gitlab.com/mishakmak/pam-fprint-grosshack /tmp/pam-fprint-grosshack
-          git -C /tmp/pam-fprint-grosshack archive \
-            --prefix=pam-fprint-grosshack-${{ steps.meta.outputs.version }}/ HEAD \
-            | gzip > ~/rpmbuild/SOURCES/pam-fprint-grosshack-${{ steps.meta.outputs.version }}.tar.gz
-
       - name: Build auto-brightness RPM
         if: steps.meta.outputs.package == 'auto-brightness'
         run: |
@@ -119,14 +96,6 @@ jobs:
           rpmbuild -bb \
             --define "dist .fc42" \
             kter-release/kter-release.spec
-
-      - name: Build pam-fprint-grosshack RPM
-        if: steps.meta.outputs.package == 'pam-fprint-grosshack'
-        run: |
-          rpmbuild -bb \
-            --define "_version ${{ steps.meta.outputs.version }}" \
-            --define "dist .fc42" \
-            packages/pam-fprint-grosshack/pam-fprint-grosshack.spec
 
       - name: Stage zenith-wallpaper sources
         if: steps.meta.outputs.package == 'zenith-wallpaper'

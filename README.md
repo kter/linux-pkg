@@ -14,6 +14,8 @@ sudo dnf install https://repo.devtools.site/rpm/noarch/kter-release-1-1.fc42.noa
 |---|---|
 | `auto-brightness` | Adjust screen brightness based on webcam ambient light |
 | `kter-release` | Repository configuration (install this first) |
+| `pam-fprint-grosshack` | PAM module for simultaneous fingerprint and password authentication via fprintd |
+| `zenith-wallpaper` | Render the real night sky as a sway/Wayland desktop wallpaper |
 
 ## Usage
 
@@ -35,6 +37,8 @@ Build RPM locally (requires `rpmdevtools`):
 
 ```bash
 make build-local
+make build-local-pam-fprint-grosshack
+make build-local-zenith-wallpaper
 ```
 
 ## Documentation
@@ -47,3 +51,4 @@ Detailed specs and operations are documented in `docs/` (Japanese):
 - [docs/troubleshooting.md](docs/troubleshooting.md) — Known issues and fixes
 - [docs/design-decisions.md](docs/design-decisions.md) — Why things are the way they are
 - [docs/packages/auto-brightness.md](docs/packages/auto-brightness.md) — Package internals
+- [docs/packages/zenith-wallpaper.md](docs/packages/zenith-wallpaper.md) — Package internals

@@ -76,6 +76,50 @@ sudo dnf clean metadata
 
 ---
 
+## zenith-wallpaper の自動リリース
+
+### 仕組み
+
+`zenith-wallpaper` リポジトリでバージョンタグ `v*` を push すると、以下が自動で行われる:
+
+```
+zenith-wallpaper: git tag v1.1 && git push (= make release VERSION=1.1)
+    ↓ release.yml が repository_dispatch を送信
+linux-pkg: build-rpm.yml が起動 (event_type: zenith-wallpaper-release)
+    ↓ v1.1 タグのコミットを clone・rpmbuild・GPG署名・S3公開
+dnf: repo.devtools.site に zenith-wallpaper-1.1-1.fc42.x86_64.rpm が公開
+```
+
+タグを直接 `git push` するのではなく、常に `make release VERSION=X.Y` を使うこと
+(clean / main / origin同期のガードが誤リリースを防ぐ)。
+
+### 初回セットアップ: PAT 登録（一度きり）
+
+`repository_dispatch` には `kter/linux-pkg` への書き込み権限を持つトークンが必要。
+
+1. GitHub → Settings → Developer settings → Personal access tokens
+   - **Fine-grained PAT** を推奨: Repository `kter/linux-pkg`、Contents: Read and write
+   - または classic PAT: `repo` スコープ
+2. 生成したトークンを `kter/zenith-wallpaper` の Settings → Secrets → Actions に
+   `LINUX_PKG_DISPATCH_TOKEN` として登録
+3. 動作確認: `make release VERSION=0.0-test` でテストタグを push し、
+   両リポジトリの GitHub Actions を確認 (`gh run list --repo kter/linux-pkg`)
+
+### フォールバック経路
+
+自動 dispatch が使えない場合の手動起動:
+
+```bash
+# linux-pkg でタグを直接打つ（旧方式）
+git -C ~/workspace/linux-pkg tag zenith-wallpaper-1.1
+git -C ~/workspace/linux-pkg push origin zenith-wallpaper-1.1
+
+# または GitHub Actions の手動トリガー
+gh workflow run build-rpm.yml --repo kter/linux-pkg --field package=zenith-wallpaper
+```
+
+---
+
 ## 新しいパッケージを追加する
 
 ### 1. ディレクトリとソースを配置

@@ -12,6 +12,8 @@ on:
         description: 'Package to build (auto-brightness, kter-release, or zenith-wallpaper)'
         required: true
         default: 'auto-brightness'
+  repository_dispatch:
+    types: [zenith-wallpaper-release]
 
 permissions:
   id-token: write
@@ -49,8 +51,13 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME:-}"
           INPUT="${{ github.event.inputs.package }}"
+          EVENT="${{ github.event_name }}"
 
-          if [[ "$TAG" =~ ^auto-brightness-(.+)$ ]]; then
+          if [[ "$EVENT" == "repository_dispatch" ]]; then
+            echo "package=zenith-wallpaper" >> "$GITHUB_OUTPUT"
+            echo "version=${{ github.event.client_payload.version }}" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.event.client_payload.ref }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^auto-brightness-(.+)$ ]]; then
             echo "package=auto-brightness" >> "$GITHUB_OUTPUT"
             echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           elif [[ "$TAG" =~ ^kter-release-(.+)$ ]]; then
@@ -100,10 +107,13 @@ jobs:
       - name: Stage zenith-wallpaper sources
         if: steps.meta.outputs.package == 'zenith-wallpaper'
         run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          REF="${{ steps.meta.outputs.ref }}"
+          REF="${REF:-HEAD}"
           git clone https://github.com/kter/zenith-wallpaper /tmp/zenith-wallpaper
           git -C /tmp/zenith-wallpaper archive \
-            --prefix=zenith-wallpaper-${{ steps.meta.outputs.version }}/ HEAD \
-            | gzip > ~/rpmbuild/SOURCES/zenith-wallpaper-${{ steps.meta.outputs.version }}.tar.gz
+            --prefix=zenith-wallpaper-${VERSION}/ "$REF" \
+            | gzip > ~/rpmbuild/SOURCES/zenith-wallpaper-${VERSION}.tar.gz
           cp packages/zenith-wallpaper/sources/zenith-wallpaper.service ~/rpmbuild/SOURCES/
           cp packages/zenith-wallpaper/sources/zenith-wallpaper.timer ~/rpmbuild/SOURCES/
 

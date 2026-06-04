@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:           zenith-wallpaper
 Version:        %{_version}
 Release:        1%{?dist}
@@ -44,5 +46,5 @@ install -D -m 0644 %{_sourcedir}/zenith-wallpaper.timer \
 %{_userunitdir}/zenith-wallpaper.timer
 
 %changelog
-* Wed Jun 04 2026 Tomohiko Takahashi <takahashi@tomohiko.io> - 1.0-1
+* Thu Jun 04 2026 Tomohiko Takahashi <takahashi@tomohiko.io> - 1.0-1
 - Initial package

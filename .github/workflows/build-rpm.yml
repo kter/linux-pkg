@@ -131,8 +131,10 @@ jobs:
       - name: Stage zenith-wallpaper sources
         if: steps.meta.outputs.package == 'zenith-wallpaper'
         run: |
-          cp packages/zenith-wallpaper/sources/zenith-wallpaper-${{ steps.meta.outputs.version }}.tar.gz \
-            ~/rpmbuild/SOURCES/
+          git clone https://github.com/kter/zenith-wallpaper /tmp/zenith-wallpaper
+          git -C /tmp/zenith-wallpaper archive \
+            --prefix=zenith-wallpaper-${{ steps.meta.outputs.version }}/ HEAD \
+            | gzip > ~/rpmbuild/SOURCES/zenith-wallpaper-${{ steps.meta.outputs.version }}.tar.gz
           cp packages/zenith-wallpaper/sources/zenith-wallpaper.service ~/rpmbuild/SOURCES/
           cp packages/zenith-wallpaper/sources/zenith-wallpaper.timer ~/rpmbuild/SOURCES/
 

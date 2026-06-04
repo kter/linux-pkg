@@ -6,6 +6,7 @@
 |---|---|---|
 | `auto-brightness` | `auto-brightness-<version>` | `auto-brightness-1.2` |
 | `kter-release` | `kter-release-<version>` | `kter-release-2` |
+| `zenith-wallpaper` | `zenith-wallpaper-<version>` | `zenith-wallpaper-1.0` |
 
 バージョン番号は `<major>.<minor>` 形式。後方互換性のある変更はマイナー、動作変更はメジャーを上げる。
 

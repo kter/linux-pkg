@@ -24,6 +24,26 @@ sudo dnf install auto-brightness
 
 After installation, the `auto-brightness.timer` systemd user unit is automatically enabled and started.
 
+### zenith-wallpaper
+
+```bash
+sudo dnf install zenith-wallpaper
+```
+
+After installation, enable the timer and update your sway config (one-time setup):
+
+```bash
+# Enable the hourly wallpaper timer
+systemctl --user enable --now zenith-wallpaper.timer
+```
+
+Add to `~/.config/sway/config`:
+
+```
+output * bg #000000 solid_color
+exec /usr/bin/zenith-wallpaper
+```
+
 ## Development
 
 Sync sources from linux-config:

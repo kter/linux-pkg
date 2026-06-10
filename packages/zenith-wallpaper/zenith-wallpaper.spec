@@ -2,7 +2,7 @@
 
 Name:           zenith-wallpaper
 Version:        %{_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Render the real night sky as a sway desktop wallpaper
 License:        MIT
 URL:            https://github.com/kter/zenith-wallpaper
@@ -28,7 +28,7 @@ are embedded in the binary — no internet download needed at runtime.
 export GOFLAGS='-mod=vendor'
 export CGO_ENABLED=0
 export GOCACHE=$(mktemp -d)
-go build -trimpath -ldflags '-s -w' -o zenith-wallpaper .
+go build -trimpath -ldflags "-s -w -X main.version=%{version}" -o zenith-wallpaper .
 
 %install
 install -D -m 0755 zenith-wallpaper \
@@ -46,5 +46,9 @@ install -D -m 0644 %{_sourcedir}/zenith-wallpaper.timer \
 %{_userunitdir}/zenith-wallpaper.timer
 
 %changelog
+* Wed Jun 10 2026 Tomohiko Takahashi <takahashi@tomohiko.io> - 1.1-2
+- Inject version into binary via ldflags so --version reports the
+  package version instead of "dev"
+
 * Thu Jun 04 2026 Tomohiko Takahashi <takahashi@tomohiko.io> - 1.0-1
 - Initial package
